@@ -288,3 +288,31 @@ to [CONTRIBUTING](CONTRIBUTING.md).
 ## Support
 
 Join the [Zep Discord server](https://discord.com/invite/W8Kw6bsgXQ) and make your way to the **#Graphiti** channel!
+
+
+
+## Personal README
+1. ```
+sudo docker run -it \
+  -e OPENAI_API_KEY=sk-proj--DoagOXE2cD0KAyD0vu6LVuRRRqVk-iBns_rJFP3Itxi7H00CxuXYBMAa5Rizcrl7ULcTiXEf9T3Blbk \
+  -e NEO4J_URI=bolt://10.0.0.4:7687 \
+  -e NEO4J_USER=neo4j \
+  -e NEO4J_PASSWORD=e5tWkrr6.Q+e \
+  931da0566289
+
+OPENAI_API_KEY=SOMEKEY
+NEO4J_URI=bolt://10.0.0.4:7687
+NEO4J_USER=neo4j
+NEO4J_PASSWORD=SOME_PASS
+```
+
+## Azure Push
+```
+az acr login -n wishlinkGraphiti --expose-token
+sudo docker login wishlinkgraphiti.azurecr.io -u 00000000-0000-0000-0000-000000000000 -p <token from previous command>
+sudo docker build -t wishlinkgraphiti.azurecr.io/graphiti:latest .
+sudo docker push wishlinkgraphiti.azurecr.io/graphiti:latest
+
+sudo docker build -t wishlinkgraphiti.azurecr.io/graphiti-prod:latest .
+sudo docker push wishlinkgraphiti.azurecr.io/graphiti-prod:latest
+```

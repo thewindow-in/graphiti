@@ -12,6 +12,8 @@ distributed under the License is distributed on an "AS IS" BASIS,
 WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
+
+MODIFIED TO INCLUDE NEW SUMMARIZE PROMPT
 """
 
 from typing import Any, Protocol, TypedDict
@@ -75,9 +77,12 @@ from .invalidate_edges import (
 )
 from .models import Message, PromptFunction
 from .prompt_helpers import DO_NOT_ESCAPE_UNICODE
+# <<< CHANGE START >>>
+# Import the updated summarize_nodes components
 from .summarize_nodes import Prompt as SummarizeNodesPrompt
 from .summarize_nodes import Versions as SummarizeNodesVersions
 from .summarize_nodes import versions as summarize_nodes_versions
+# <<< CHANGE END >>>
 
 
 class PromptLibrary(Protocol):
@@ -87,7 +92,7 @@ class PromptLibrary(Protocol):
     dedupe_edges: DedupeEdgesPrompt
     invalidate_edges: InvalidateEdgesPrompt
     extract_edge_dates: ExtractEdgeDatesPrompt
-    summarize_nodes: SummarizeNodesPrompt
+    summarize_nodes: SummarizeNodesPrompt # This protocol includes the new function now
     eval: EvalPrompt
 
 
@@ -98,7 +103,7 @@ class PromptLibraryImpl(TypedDict):
     dedupe_edges: DedupeEdgesVersions
     invalidate_edges: InvalidateEdgesVersions
     extract_edge_dates: ExtractEdgeDatesVersions
-    summarize_nodes: SummarizeNodesVersions
+    summarize_nodes: SummarizeNodesVersions # This type includes the new function now
     eval: EvalVersions
 
 
@@ -108,8 +113,16 @@ class VersionWrapper:
 
     def __call__(self, context: dict[str, Any]) -> list[Message]:
         messages = self.func(context)
+        # Add unicode helper only to system messages if needed
+        # Simplified: Apply to all for consistency, though only system usually needs it.
         for message in messages:
-            message.content += DO_NOT_ESCAPE_UNICODE if message.role == 'system' else ''
+             # Ensure content is a string before appending
+             if isinstance(message.content, str):
+                 message.content += DO_NOT_ESCAPE_UNICODE
+             else:
+                 # Handle cases where content might not be a string (e.g., Anthropic structured format)
+                 # This part might need adjustment based on specific LLM client needs
+                 pass # Or log a warning
         return messages
 
 
@@ -122,7 +135,13 @@ class PromptTypeWrapper:
 class PromptLibraryWrapper:
     def __init__(self, library: PromptLibraryImpl):
         for prompt_type, versions in library.items():
-            setattr(self, prompt_type, PromptTypeWrapper(versions))  # type: ignore[arg-type]
+            # Ensure versions is a dictionary before iterating
+            if isinstance(versions, dict):
+                 setattr(self, prompt_type, PromptTypeWrapper(versions))
+            else:
+                 # Log or handle cases where versions might not be a dict
+                 # This can happen if a module fails to import or define 'versions'
+                 print(f"Warning: Expected dict for prompt type '{prompt_type}', got {type(versions)}. Skipping.")
 
 
 PROMPT_LIBRARY_IMPL: PromptLibraryImpl = {
@@ -132,7 +151,8 @@ PROMPT_LIBRARY_IMPL: PromptLibraryImpl = {
     'dedupe_edges': dedupe_edges_versions,
     'invalidate_edges': invalidate_edges_versions,
     'extract_edge_dates': extract_edge_dates_versions,
-    'summarize_nodes': summarize_nodes_versions,
+    'summarize_nodes': summarize_nodes_versions, # Uses the updated versions dict
     'eval': eval_versions,
 }
-prompt_library: PromptLibrary = PromptLibraryWrapper(PROMPT_LIBRARY_IMPL)  # type: ignore[assignment]
+prompt_library: PromptLibrary = PromptLibraryWrapper(PROMPT_LIBRARY_IMPL) # type: ignore[assignment]
+

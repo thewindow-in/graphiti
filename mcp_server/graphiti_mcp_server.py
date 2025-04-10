@@ -447,7 +447,7 @@ async def search_facts(
         # Use cast to help the type checker understand that graphiti_client is not None
         client = cast(Graphiti, graphiti_client)
 
-        relevant_edges = await client.search(
+        relevant_edges, _ = await client.search(
             group_ids=effective_group_ids,
             query=query,
             num_results=max_facts,

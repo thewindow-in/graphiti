@@ -51,7 +51,6 @@ from graphiti_core.utils.maintenance.graph_data_operations import (
     retrieve_episodes,
 )
 from graphiti_core.utils.maintenance.node_operations import (
-    dedupe_extracted_nodes,
     dedupe_node_list,
     extract_nodes,
 )
@@ -173,43 +172,6 @@ async def extract_nodes_and_edges_bulk(
         edges += extracted_edges
 
     return nodes, edges, episodic_edges
-
-
-async def dedupe_nodes_bulk(
-    driver: AsyncDriver,
-    llm_client: LLMClient,
-    extracted_nodes: list[EntityNode],
-) -> tuple[list[EntityNode], dict[str, str]]:
-    # Compress nodes
-    nodes, uuid_map = node_name_match(extracted_nodes)
-
-    compressed_nodes, compressed_map = await compress_nodes(llm_client, nodes, uuid_map)
-
-    node_chunks = [nodes[i : i + CHUNK_SIZE] for i in range(0, len(nodes), CHUNK_SIZE)]
-
-    existing_nodes_chunks: list[list[EntityNode]] = list(
-        await semaphore_gather(
-            *[get_relevant_nodes(driver, SearchFilters(), node_chunk) for node_chunk in node_chunks]
-        )
-    )
-
-    results: list[tuple[list[EntityNode], dict[str, str]]] = list(
-        await semaphore_gather(
-            *[
-                dedupe_extracted_nodes(llm_client, node_chunk, existing_nodes_chunks[i])
-                for i, node_chunk in enumerate(node_chunks)
-            ]
-        )
-    )
-
-    final_nodes: list[EntityNode] = []
-    for result in results:
-        final_nodes.extend(result[0])
-        partial_uuid_map = result[1]
-        compressed_map.update(partial_uuid_map)
-
-    return final_nodes, compressed_map
-
 
 async def dedupe_edges_bulk(
     driver: AsyncDriver, llm_client: LLMClient, extracted_edges: list[EntityEdge]

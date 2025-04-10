@@ -38,6 +38,10 @@ COPY ./server /app
 # Set environment variables
 ENV PYTHONUNBUFFERED=1
 ENV PORT=8000
-# Command to run the application
 
+# Add a health check endpoint (recommended for Azure Container Apps)
+HEALTHCHECK --interval=30s --timeout=30s --start-period=5s --retries=3 \
+    CMD curl -f http://localhost:${PORT}/healthcheck || exit 1
+
+# Command to run the application
 CMD uvicorn graph_service.main:app --host 0.0.0.0 --port $PORT

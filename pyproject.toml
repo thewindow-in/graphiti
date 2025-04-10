@@ -22,6 +22,8 @@ tenacity = "9.0.0"
 numpy = ">=1.0.0"
 python-dotenv = "^1.0.1"
 anthropic = "~0.49.0"
+aiohttp = "3.11.14"
+tqdm = "4.67.1"
 
 [tool.poetry.group.dev.dependencies]
 mypy = "^1.11.1"

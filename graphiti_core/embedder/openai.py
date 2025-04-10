@@ -22,7 +22,8 @@ from openai.types import EmbeddingModel
 
 from .client import EmbedderClient, EmbedderConfig
 
-DEFAULT_EMBEDDING_MODEL = 'text-embedding-3-small'
+# DEFAULT_EMBEDDING_MODEL = 'text-embedding-3-small'
+DEFAULT_EMBEDDING_MODEL = 'text-embedding-004'
 
 
 class OpenAIEmbedderConfig(EmbedderConfig):

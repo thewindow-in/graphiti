@@ -12,6 +12,8 @@ distributed under the License is distributed on an "AS IS" BASIS,
 WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
+
+MODIFIED TO CONSIDER LABELS/TYPES
 """
 
 import json
@@ -23,20 +25,20 @@ from .models import Message, PromptFunction, PromptVersion
 
 
 class NodeDuplicate(BaseModel):
-    is_duplicate: bool = Field(..., description='true or false')
+    is_duplicate: bool = Field(..., description='true if the NEW NODE represents the same real-world entity or event instance as one of the EXISTING NODES, otherwise false.')
     uuid: Optional[str] = Field(
         None,
-        description="uuid of the existing node like '5d643020624c42fa9de13f97b1b3fa39' or null",
+        description="If is_duplicate is true, provide the UUID of the EXISTING NODE that it duplicates. Otherwise, null.",
     )
     name: str = Field(
         ...,
-        description="Updated name of the new node (use the best name between the new node's name, an existing duplicate name, or a combination of both)",
+        description="The best, most complete name for the entity/event. If duplicating, choose the best name between the new and existing node, or synthesize one. If not duplicating, use the new node's name.",
     )
 
 
 class Prompt(Protocol):
     node: PromptVersion
-    node_list: PromptVersion
+    node_list: PromptVersion # No changes needed for node_list prompt
 
 
 class Versions(TypedDict):
@@ -45,10 +47,12 @@ class Versions(TypedDict):
 
 
 def node(context: dict[str, Any]) -> list[Message]:
+    # <<< CHANGE START >>>
+    # Added consideration for node labels/types, especially for dynamic events
     return [
         Message(
             role='system',
-            content='You are a helpful assistant that de-duplicates nodes from node lists.',
+            content='You are a helpful assistant that de-duplicates nodes based on conversation context and existing graph data. You must determine if a newly extracted node represents the *exact same* real-world entity or specific event instance as one already existing.',
         ),
         Message(
             role='user',
@@ -63,35 +67,30 @@ def node(context: dict[str, Any]) -> list[Message]:
         <EXISTING NODES>
         {json.dumps(context['existing_nodes'], indent=2)}
         </EXISTING NODES>
-        
-        Given the above EXISTING NODES and their attributes, MESSAGE, and PREVIOUS MESSAGES. Determine if the NEW NODE extracted from the conversation
-        is a duplicate entity of one of the EXISTING NODES.
 
         <NEW NODE>
         {json.dumps(context['extracted_nodes'], indent=2)}
         </NEW NODE>
+
         Task:
-        1. If the New Node represents the same entity as any node in Existing Nodes, return 'is_duplicate: true' in the 
-            response. Otherwise, return 'is_duplicate: false'
-        2. If is_duplicate is true, also return the uuid of the existing node in the response
-        3. If is_duplicate is true, return a name for the node that is the most complete full name.
+        Analyze the NEW NODE in the context of the CURRENT MESSAGE, PREVIOUS MESSAGES, and the list of potentially relevant EXISTING NODES. Determine if the NEW NODE represents the *exact same* real-world entity or *specific event instance* as one of the EXISTING NODES.
 
         Guidelines:
-        1. Use both the name and summary of nodes to determine if the entities are duplicates, 
-            duplicate nodes may have different names
+        1.  **Semantic Match:** Consider names, summaries/attributes, and the conversation context. Nodes can be duplicates even with slightly different names (e.g., "Priya Sharma" vs "Priya S.").
+        2.  **Entity Type/Labels:** Pay attention to implicit or explicit types/labels. A "Campaign" node should generally only duplicate another "Campaign" node.
+        3.  **Dynamic Events (e.g., TechnicalIssue, PayoutIssue):** Be cautious. A new mention of an "API Outage" might be a *new occurrence* of a similar issue, not a duplicate of a past outage node, unless the context strongly implies it's the *same ongoing* incident being discussed. If it seems like a distinct occurrence, mark `is_duplicate: false`.
+        4.  **Name Update:** If `is_duplicate` is true, choose the most complete and accurate name from either the new or existing node, or synthesize the best possible name. If `is_duplicate` is false, use the NEW NODE's name.
+        5.  **Output:** Respond with a JSON object containing `is_duplicate` (boolean), `uuid` (string UUID of the matched existing node if duplicate, else null), and `name` (string, the chosen/updated name).
 
-        Respond with a JSON object in the following format:
-            {{
-                "is_duplicate": true or false,
-                "uuid": "uuid of the existing node like 5d643020624c42fa9de13f97b1b3fa39 or null",
-                "name": "Updated name of the new node (use the best name between the new node's name, an existing duplicate name, or a combination of both)"
-            }}
+        Respond with a JSON object in the specified format.
         """,
         ),
     ]
+    # <<< CHANGE END >>>
 
 
 def node_list(context: dict[str, Any]) -> list[Message]:
+    # No changes needed for the node_list prompt in this step
     return [
         Message(
             role='system',

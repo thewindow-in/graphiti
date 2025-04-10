@@ -224,6 +224,7 @@ async def edge_search(
     if config.reranker == EdgeReranker.episode_mentions:
         reranked_edges.sort(reverse=True, key=lambda edge: len(edge.episodes))
 
+    logger.info(f"Reranked Edges are: {reranked_edges[:limit]} Reranked Edges")
     return reranked_edges[:limit]
 
 

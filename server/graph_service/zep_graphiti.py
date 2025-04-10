@@ -99,11 +99,13 @@ async def initialize_graphiti(settings: ZepEnvDep):
     await client.build_indices_and_constraints()
 
 
-def get_fact_result_from_edge(edge: EntityEdge):
+def get_fact_result_from_edge(edge: EntityEdge, episode_map):
+    logger.info(f"{episode_map} here is episode Map")
     return FactResult(
         uuid=edge.uuid,
         name=edge.name,
         fact=edge.fact,
+        episodes=[episode_map[uuid] for uuid in edge.episodes],
         valid_at=edge.valid_at,
         invalid_at=edge.invalid_at,
         created_at=edge.created_at,
