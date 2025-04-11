@@ -298,7 +298,7 @@ sudo docker run -it \
   -e NEO4J_URI=bolt://10.0.0.4:7687 \
   -e NEO4J_USER=neo4j \
   -e NEO4J_PASSWORD=e5tWkrr6.Q+e \
-  931da0566289
+  82eeff76db8b
 
 OPENAI_API_KEY=SOMEKEY
 NEO4J_URI=bolt://10.0.0.4:7687

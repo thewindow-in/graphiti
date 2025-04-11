@@ -18,9 +18,10 @@ import logging
 from abc import ABC, abstractmethod
 from datetime import datetime
 from time import time
-from typing import Any
+from typing import Any, Optional
 from uuid import uuid4
 
+from graphiti_core.utils.datetime_utils import utc_now
 from neo4j import AsyncDriver
 from pydantic import BaseModel, Field
 from typing_extensions import LiteralString
@@ -43,7 +44,10 @@ class Edge(BaseModel, ABC):
     group_id: str = Field(description='partition of the graph')
     source_node_uuid: str
     target_node_uuid: str
-    created_at: datetime
+    # --- CHANGE START ---
+    # Remove default factory, make it optional
+    created_at: Optional[datetime] = Field(default=None, description="Timestamp when the original event occurred or data was generated")
+    # --- CHANGE END ---
 
     @abstractmethod
     async def save(self, driver: AsyncDriver): ...
@@ -76,13 +80,14 @@ class Edge(BaseModel, ABC):
 
 class EpisodicEdge(Edge):
     async def save(self, driver: AsyncDriver):
+        effective_created_at = self.created_at or utc_now() 
         result = await driver.execute_query(
             EPISODIC_EDGE_SAVE,
             episode_uuid=self.source_node_uuid,
             entity_uuid=self.target_node_uuid,
             uuid=self.uuid,
             group_id=self.group_id,
-            created_at=self.created_at,
+            created_at=effective_created_at,
             database_=DEFAULT_DATABASE,
         )
 
@@ -208,6 +213,7 @@ class EntityEdge(Edge):
         return self.fact_embedding
 
     async def save(self, driver: AsyncDriver):
+        effective_created_at = self.created_at or utc_now()
         result = await driver.execute_query(
             ENTITY_EDGE_SAVE,
             source_uuid=self.source_node_uuid,
@@ -218,7 +224,7 @@ class EntityEdge(Edge):
             fact=self.fact,
             fact_embedding=self.fact_embedding,
             episodes=self.episodes,
-            created_at=self.created_at,
+            created_at=effective_created_at,
             expired_at=self.expired_at,
             valid_at=self.valid_at,
             invalid_at=self.invalid_at,
@@ -366,13 +372,14 @@ class EntityEdge(Edge):
 
 class CommunityEdge(Edge):
     async def save(self, driver: AsyncDriver):
+        effective_created_at = self.created_at or utc_now()
         result = await driver.execute_query(
             COMMUNITY_EDGE_SAVE,
             community_uuid=self.source_node_uuid,
             entity_uuid=self.target_node_uuid,
             uuid=self.uuid,
             group_id=self.group_id,
-            created_at=self.created_at,
+            created_at=effective_created_at,
             database_=DEFAULT_DATABASE,
         )
 
@@ -464,16 +471,18 @@ class CommunityEdge(Edge):
 
 # Edge helpers
 def get_episodic_edge_from_record(record: Any) -> EpisodicEdge:
+    created_at_native = record['created_at'].to_native() if record['created_at'] else None
     return EpisodicEdge(
         uuid=record['uuid'],
         group_id=record['group_id'],
         source_node_uuid=record['source_node_uuid'],
         target_node_uuid=record['target_node_uuid'],
-        created_at=record['created_at'].to_native(),
+        created_at=created_at_native,
     )
 
 
 def get_entity_edge_from_record(record: Any) -> EntityEdge:
+    created_at_native = record['created_at'].to_native() if record['created_at'] else None
     return EntityEdge(
         uuid=record['uuid'],
         source_node_uuid=record['source_node_uuid'],
@@ -483,7 +492,7 @@ def get_entity_edge_from_record(record: Any) -> EntityEdge:
         group_id=record['group_id'],
         episodes=record['episodes'],
         fact_embedding=record['fact_embedding'],
-        created_at=record['created_at'].to_native(),
+        created_at=created_at_native,
         expired_at=parse_db_date(record['expired_at']),
         valid_at=parse_db_date(record['valid_at']),
         invalid_at=parse_db_date(record['invalid_at']),
@@ -491,10 +500,11 @@ def get_entity_edge_from_record(record: Any) -> EntityEdge:
 
 
 def get_community_edge_from_record(record: Any):
+    created_at_native = record['created_at'].to_native() if record['created_at'] else None
     return CommunityEdge(
         uuid=record['uuid'],
         group_id=record['group_id'],
         source_node_uuid=record['source_node_uuid'],
         target_node_uuid=record['target_node_uuid'],
-        created_at=record['created_at'].to_native(),
+        created_at=created_at_native,
     )

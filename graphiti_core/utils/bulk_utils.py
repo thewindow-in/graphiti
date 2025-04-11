@@ -161,7 +161,7 @@ async def extract_nodes_and_edges_bulk(
 
     episodic_edges: list[EpisodicEdge] = []
     for i, episode in enumerate(episodes):
-        episodic_edges += build_episodic_edges(extracted_nodes_bulk[i], episode, episode.created_at)
+        episodic_edges += build_episodic_edges(extracted_nodes_bulk[i], episode, episode.valid_at)
 
     nodes: list[EntityNode] = []
     for extracted_nodes in extracted_nodes_bulk:

@@ -136,7 +136,7 @@ async def extract_edges(
             group_id=group_id,
             fact=edge_data.get('fact', ''),
             episodes=[episode.uuid],
-            created_at=utc_now(),
+            created_at=episode.created_at,
             valid_at=None,
             invalid_at=None,
         )

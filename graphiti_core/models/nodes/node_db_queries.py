@@ -17,7 +17,9 @@ limitations under the License.
 EPISODIC_NODE_SAVE = """
         MERGE (n:Episodic {uuid: $uuid})
         SET n = {uuid: $uuid, name: $name, group_id: $group_id, source_description: $source_description, source: $source, content: $content, 
-        entity_edges: $entity_edges, created_at: $created_at, valid_at: $valid_at}
+        entity_edges: $entity_edges, created_at: $created_at, valid_at: $valid_at
+        source_channel_id: $source_channel_id, source_channel_name: $source_channel_name, is_human_message: $is_human_message
+        }
         RETURN n.uuid AS uuid"""
 
 EPISODIC_NODE_SAVE_BULK = """

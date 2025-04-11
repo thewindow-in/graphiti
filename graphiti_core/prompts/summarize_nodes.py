@@ -1,3 +1,4 @@
+# graphiti_core/prompts/summarize_nodes.py
 """
 Copyright 2024, Zep Software, Inc.
 
@@ -13,11 +14,13 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 
-MODIFIED TO ADD BATCH COMMUNITY SUMMARIZATION
+MODIFIED TO:
+- Add BATCH COMMUNITY SUMMARIZATION.
+- Enhance community summary prompt to include RECENT CONTEXT.
 """
 
 import json
-from typing import Any, Protocol, TypedDict, List # Added List
+from typing import Any, Protocol, TypedDict, List
 
 from pydantic import BaseModel, Field
 
@@ -34,40 +37,36 @@ class Summary(BaseModel):
 class SummaryDescription(BaseModel):
     description: str = Field(..., description='One sentence description of the provided summary')
 
-# <<< CHANGE START >>>
-# New response model for batch community summarization and naming
+
 class CommunitySummaryAndName(BaseModel):
     community_name: str = Field(
         ...,
         description="A concise, descriptive name for the community (e.g., 'Creator Onboarding Issues', 'Q3 Campaign Performance', 'API Development Team'). Under 10 words."
     )
+    # --- MODIFICATION START: Allow slightly longer summary ---
     community_summary: str = Field(
         ...,
-        description="A brief summary (2-3 sentences) capturing the core theme or purpose of the community based on its members."
+        description="A brief summary (3-5 sentences) capturing the core theme based on members AND incorporating key highlights or status from recent context."
     )
-# <<< CHANGE END >>>
+    # --- MODIFICATION END ---
 
 
 class Prompt(Protocol):
     summarize_pair: PromptVersion
     summarize_context: PromptVersion
     summary_description: PromptVersion
-    # <<< CHANGE START >>>
-    summarize_community_batch: PromptVersion # Add new prompt function
-    # <<< CHANGE END >>>
+    summarize_community_batch: PromptVersion
 
 
 class Versions(TypedDict):
     summarize_pair: PromptFunction
     summarize_context: PromptFunction
     summary_description: PromptFunction
-    # <<< CHANGE START >>>
-    summarize_community_batch: PromptFunction # Add new prompt function
-    # <<< CHANGE END >>>
+    summarize_community_batch: PromptFunction
 
 
 def summarize_pair(context: dict[str, Any]) -> list[Message]:
-    # This function remains but will be used less often, potentially only for node merging.
+    # No changes needed
     return [
         Message(
             role='system',
@@ -90,7 +89,7 @@ def summarize_pair(context: dict[str, Any]) -> list[Message]:
 
 
 def summarize_context(context: dict[str, Any]) -> list[Message]:
-    # This is for summarizing individual nodes based on messages, remains unchanged.
+    # No changes needed
     return [
         Message(
             role='system',
@@ -131,7 +130,7 @@ def summarize_context(context: dict[str, Any]) -> list[Message]:
 
 
 def summary_description(context: dict[str, Any]) -> list[Message]:
-     # This function remains but will be used less often, potentially replaced by summarize_community_batch
+     # No changes needed
     return [
         Message(
             role='system',
@@ -149,56 +148,69 @@ def summary_description(context: dict[str, Any]) -> list[Message]:
         ),
     ]
 
-# <<< CHANGE START >>>
-# New prompt function for batch community summarization
+
 def summarize_community_batch(context: dict[str, Any]) -> list[Message]:
     """
-    Generates a prompt to summarize a community based on a list of its members' names and summaries.
+    Generates a prompt to summarize a community based on its members and recent context.
+    Expects 'community_members' and 'recent_context' keys in the context dict.
     """
-    # Prepare input string - include names and summaries for context
+    # Prepare member info string
     members_info = ""
     for member in context.get('community_members', []):
         members_info += f"- Node Name: {member.get('name', 'N/A')}\n"
-        if member.get('summary'): # Only include summary if it exists
-            members_info += f"  Summary: {member['summary'][:200]}...\n" # Truncate long summaries
+        if member.get('summary'):
+            members_info += f"  Summary: {member['summary'][:200]}...\n"
         members_info += "\n"
-
     if not members_info:
-        members_info = "No member information provided."
+        members_info = "No specific member information provided."
+
+    # --- MODIFICATION START: Prepare recent context string ---
+    recent_context_info = ""
+    recent_ctx = context.get('recent_context')
+    if isinstance(recent_ctx, list) and recent_ctx:
+        # Format based on what you pass (e.g., list of facts, summaries, snippets)
+        # Example: Assuming recent_context is a list of recent fact strings
+        recent_context_info = "\n".join([f"- {fact}" for fact in recent_ctx])
+    if not recent_context_info:
+        recent_context_info = "No specific recent context provided."
+    # --- MODIFICATION END ---
 
     return [
         Message(
             role='system',
-            content="""You are an AI assistant skilled at analyzing groups of related entities (nodes in a knowledge graph) and synthesizing their collective theme or purpose into a concise community name and summary.
+            content="""You are an AI assistant skilled at analyzing groups of related entities (nodes in a knowledge graph) and synthesizing their collective theme and recent activity into a concise community name and summary.
 
-You will be given a list of nodes belonging to a detected community. Your task is to:
-1.  Determine the central topic, project, team, issue type, or common characteristic shared by the majority of these nodes.
+You will be given:
+1.  A list of nodes belonging to a detected community, potentially with their own summaries.
+2.  A list of recent facts, events, or messages related to members of this community.
+
+Your task is to:
+1.  Determine the central topic, project, team, issue type, or common characteristic shared by the majority of the community members.
 2.  Generate a short, descriptive `community_name` (under 10 words) that reflects this central theme.
-3.  Generate a brief `community_summary` (2-3 sentences) explaining the community's focus or the commonality among its members."""
+3.  Generate a brief `community_summary` (3-5 sentences) that **first explains the core theme** based on the members, and **then incorporates key highlights, status updates, or significant recent events** mentioned in the recent context provided. Balance the static theme with the dynamic recent information."""
         ),
         Message(
             role='user',
             content=f"""
-            Analyze the following list of community members (nodes) and their summaries (if available).
-            Based on this information, determine the central theme and generate a concise community name and summary.
+            Analyze the following community members and recent context. Based on this information, determine the central theme and recent highlights, then generate a concise community name and summary.
 
             <COMMUNITY MEMBERS>
             {members_info}
             </COMMUNITY MEMBERS>
 
+            <RECENT CONTEXT (e.g., recent facts/events related to members)>
+            {recent_context_info}
+            </RECENT CONTEXT>
+
             Provide the output as a JSON object with keys "community_name" and "community_summary".
+            Ensure the summary explains the core theme AND includes highlights from the recent context.
             """,
         ),
     ]
-# <<< CHANGE END >>>
-
 
 versions: Versions = {
     'summarize_pair': summarize_pair,
     'summarize_context': summarize_context,
     'summary_description': summary_description,
-    # <<< CHANGE START >>>
-    'summarize_community_batch': summarize_community_batch, # Register new function
-    # <<< CHANGE END >>>
+    'summarize_community_batch': summarize_community_batch,
 }
-
